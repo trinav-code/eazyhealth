@@ -288,20 +288,54 @@ Return ONLY the JSON object."""
         response_text = self.call(user_prompt, system_prompt)
 
         try:
+            # Try to extract JSON from response
             if "```json" in response_text:
                 response_text = response_text.split("```json")[1].split("```")[0].strip()
             elif "```" in response_text:
                 response_text = response_text.split("```")[1].split("```")[0].strip()
 
-            return json.loads(response_text)
-        except json.JSONDecodeError:
-            return {
-                "title": "Health News Summary",
-                "summary": "Recent developments in health research.",
-                "body_markdown": response_text,
-                "tags": [],
-                "disclaimer": "This information is for general educational purposes only and is not medical advice."
-            }
+            # Parse JSON
+            parsed = json.loads(response_text)
+
+            # Ensure body_markdown is clean markdown, not JSON
+            if isinstance(parsed.get("body_markdown"), str):
+                # Clean up any escaped newlines
+                parsed["body_markdown"] = parsed["body_markdown"].replace("\\n", "\n")
+
+            return parsed
+
+        except json.JSONDecodeError as e:
+            print(f"JSON parse error: {e}")
+            print(f"Response text: {response_text[:500]}")
+
+            # Try to extract fields manually from malformed JSON
+            try:
+                import re
+                title_match = re.search(r'"title":\s*"([^"]+)"', response_text)
+                summary_match = re.search(r'"summary":\s*"([^"]+)"', response_text)
+                body_match = re.search(r'"body_markdown":\s*"(.+?)",\s*"tags"', response_text, re.DOTALL)
+
+                if body_match:
+                    body = body_match.group(1).replace("\\n", "\n").replace('\\"', '"')
+                else:
+                    body = "Content unavailable due to formatting error."
+
+                return {
+                    "title": title_match.group(1) if title_match else "Health News Summary",
+                    "summary": summary_match.group(1) if summary_match else "Recent health developments.",
+                    "body_markdown": body,
+                    "tags": [],
+                    "disclaimer": "This information is for general educational purposes only and is not medical advice."
+                }
+            except Exception:
+                # Last resort: use plain text
+                return {
+                    "title": "Health News Summary",
+                    "summary": "Recent developments in health research.",
+                    "body_markdown": response_text[:1000],  # Use first 1000 chars
+                    "tags": [],
+                    "disclaimer": "This information is for general educational purposes only and is not medical advice."
+                }
 
 
 # Global LLM client instance

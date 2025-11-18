@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: eazyhealth-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_NAME
+        value: EazyHealth AI
+      - key: DEBUG
+        value: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_MODEL
+        value: gpt-4
+      - key: LLM_MAX_TOKENS
+        value: 4096
+      - key: LLM_TEMPERATURE
+        value: 0.7
+      - key: SEARCH_PROVIDER
+        value: brave
+      - key: TRUSTED_DOMAINS
+        value: cdc.gov,nih.gov,who.int,mayoclinic.org,hopkinsmedicine.org,health.harvard.edu,webmd.com,medlineplus.gov
+      - key: RATE_LIMIT_PER_MINUTE
+        value: 10
+      # Add these as secret environment variables in Render dashboard:
+      # - OPENAI_API_KEY
+      # - BRAVE_API_KEY
+      # - ANTHROPIC_API_KEY (optional)
+      # - DATABASE_URL (Render will auto-generate for PostgreSQL)
+      # - CORS_ORIGINS (set to your Vercel frontend URL)

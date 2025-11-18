@@ -33,6 +33,10 @@ export default function BriefingCard({ briefing }: BriefingCardProps) {
     }
   };
 
+  const getReadingLevelLabel = (readingLevel: string) => {
+    return readingLevel.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   return (
     <div className="briefing-card bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
       <div className="flex items-start justify-between mb-3">
@@ -42,7 +46,13 @@ export default function BriefingCard({ briefing }: BriefingCardProps) {
               {briefing.title}
             </h3>
           </Link>
-          <p className="text-sm text-gray-500 mt-1">{formatDate(briefing.created_at)}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-sm text-gray-500">{formatDate(briefing.created_at)}</p>
+            <span className="text-gray-400">•</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              📚 {getReadingLevelLabel(briefing.reading_level)}
+            </span>
+          </div>
         </div>
         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 ml-4">
           {getSourceTypeLabel(briefing.source_type)}

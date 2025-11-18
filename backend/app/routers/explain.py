@@ -12,6 +12,7 @@ from app.models.explainer_log import ExplainerLog
 from app.services.llm_client import llm_client
 from app.services.source_finder import source_finder
 from app.services.article_extractor import article_extractor
+from app.services.token_counter import token_counter
 
 router = APIRouter(prefix="/api", tags=["Explainer"])
 
@@ -79,6 +80,21 @@ async def explain(
                 )
 
             input_text = extracted["text"]
+
+            # Check token count and truncate if necessary
+            text_tokens = token_counter.count_tokens(input_text)
+            base_prompt_tokens = 500  # Estimated tokens for system prompt
+
+            if text_tokens + base_prompt_tokens > token_counter.max_input_tokens:
+                print(f"⚠️  Article too long ({text_tokens} tokens). Truncating to fit within limit...")
+                # Truncate to fit: calculate max chars we can use
+                max_tokens_for_text = token_counter.max_input_tokens - base_prompt_tokens
+                # Rough estimate: 1 token ≈ 4 characters
+                max_chars = max_tokens_for_text * 4
+                input_text = input_text[:max_chars]
+                truncated_tokens = token_counter.count_tokens(input_text)
+                print(f"✓ Truncated to {truncated_tokens} tokens")
+
             input_excerpt = article_extractor.extract_excerpt(input_text)
             sources_found.append({
                 "url": request.url,
@@ -89,6 +105,19 @@ async def explain(
         # Case 2: Raw text provided
         elif request.raw_text:
             input_text = request.raw_text
+
+            # Check token count and truncate if necessary
+            text_tokens = token_counter.count_tokens(input_text)
+            base_prompt_tokens = 500  # Estimated tokens for system prompt
+
+            if text_tokens + base_prompt_tokens > token_counter.max_input_tokens:
+                print(f"⚠️  Raw text too long ({text_tokens} tokens). Truncating to fit within limit...")
+                max_tokens_for_text = token_counter.max_input_tokens - base_prompt_tokens
+                max_chars = max_tokens_for_text * 4
+                input_text = input_text[:max_chars]
+                truncated_tokens = token_counter.count_tokens(input_text)
+                print(f"✓ Truncated to {truncated_tokens} tokens")
+
             input_excerpt = article_extractor.extract_excerpt(input_text)
 
         # Case 3: Query provided - search for sources
@@ -102,22 +131,82 @@ async def explain(
                     detail=f"No trusted sources found for query: {request.query}"
                 )
 
-            # Extract content from top result
-            top_result = search_results[0]
-            extracted = article_extractor.extract(top_result["url"])
+            # Extract content from multiple sources and select based on token limits
+            articles = []
+            for result in search_results:
+                url = result.get("url")
+                if not url:
+                    continue
 
-            if extracted and extracted.get("text"):
-                input_text = extracted["text"]
-                input_excerpt = article_extractor.extract_excerpt(input_text)
-
-                for result in search_results:
-                    sources_found.append({
-                        "url": result["url"],
-                        "title": result["title"],
-                        "excerpt": result.get("snippet", ""),
+                extracted = article_extractor.extract(url)
+                if extracted and extracted.get("text"):
+                    articles.append({
+                        "url": url,
+                        "title": extracted.get("title", result.get("title", "Article")),
+                        "text": extracted.get("text", ""),
                     })
+
+            if articles:
+                # Use token counter to select articles that fit within limits
+                print(f"Found {len(articles)} articles for query. Selecting based on token limit...")
+                selected_articles = token_counter.select_articles_within_limit(
+                    articles, base_prompt_tokens=500
+                )
+
+                if selected_articles:
+                    # Combine selected article(s) into input_text
+                    input_text = "\n\n---\n\n".join([
+                        f"Source: {article['title']}\n\n{article['text']}"
+                        for article in selected_articles
+                    ])
+
+                    # Add to sources_found
+                    for article in selected_articles:
+                        excerpt = article_extractor.extract_excerpt(article['text'])
+                        sources_found.append({
+                            "url": article["url"],
+                            "title": article["title"],
+                            "excerpt": excerpt,
+                        })
+
+                    input_excerpt = article_extractor.extract_excerpt(input_text)
+                    print(f"✓ Selected {len(selected_articles)} article(s) that fit within token limit")
+                else:
+                    # No articles fit - find the shortest one and truncate it
+                    print("⚠️  All articles too long. Finding shortest article to truncate...")
+
+                    # Sort articles by token count (ascending)
+                    articles_with_tokens = [
+                        {
+                            **article,
+                            "token_count": token_counter.count_tokens(article["text"])
+                        }
+                        for article in articles
+                    ]
+                    articles_with_tokens.sort(key=lambda x: x["token_count"])
+
+                    shortest_article = articles_with_tokens[0]
+                    print(f"Shortest article: {shortest_article['token_count']} tokens. Truncating to fit...")
+
+                    # Truncate to fit within limit
+                    max_tokens_for_text = token_counter.max_input_tokens - 500
+                    max_chars = max_tokens_for_text * 4
+                    truncated_text = shortest_article["text"][:max_chars]
+
+                    input_text = f"Source: {shortest_article['title']}\n\n{truncated_text}"
+                    input_excerpt = article_extractor.extract_excerpt(truncated_text)
+
+                    sources_found.append({
+                        "url": shortest_article["url"],
+                        "title": shortest_article["title"],
+                        "excerpt": input_excerpt,
+                    })
+
+                    truncated_tokens = token_counter.count_tokens(truncated_text)
+                    print(f"✓ Truncated shortest article to {truncated_tokens} tokens")
             else:
-                # Fallback: use search snippets
+                # Fallback: use search snippets if extraction failed for all
+                print("⚠️  Failed to extract content from articles. Using search snippets as fallback.")
                 input_text = "\n\n".join([
                     f"{r['title']}\n{r.get('snippet', '')}"
                     for r in search_results
@@ -152,15 +241,23 @@ async def explain(
         db.commit()
 
         # Format response
+        # Handle case where LLM returns content as list instead of string
+        sections = []
+        for section in explainer_output.get("sections", []):
+            content = section.get("content", "")
+            # If content is a list, join it into a single string
+            if isinstance(content, list):
+                content = "\n\n".join(str(item) for item in content)
+            sections.append(
+                ExplainerSection(
+                    heading=section.get("heading", ""),
+                    content=content
+                )
+            )
+
         return ExplainResponse(
             title=explainer_output.get("title", topic_hint),
-            sections=[
-                ExplainerSection(
-                    heading=section["heading"],
-                    content=section["content"]
-                )
-                for section in explainer_output.get("sections", [])
-            ],
+            sections=sections,
             sources=sources_found,
             disclaimer=explainer_output.get(
                 "disclaimer",

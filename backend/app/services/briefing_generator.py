@@ -9,6 +9,7 @@ from app.config import ReadingLevel, BriefingSourceType
 from app.services.llm_client import llm_client
 from app.services.source_finder import source_finder
 from app.services.article_extractor import article_extractor
+from app.services.token_counter import token_counter
 
 
 class BriefingGenerator:
@@ -100,7 +101,7 @@ class BriefingGenerator:
                 articles.append({
                     "url": url,
                     "title": extracted.get("title", result.get("title", "Article")),
-                    "content": extracted.get("text", ""),
+                    "text": extracted.get("text", ""),  # Use 'text' key for token counter
                 })
                 source_urls.append(url)
             else:
@@ -108,17 +109,34 @@ class BriefingGenerator:
                 articles.append({
                     "url": url,
                     "title": result.get("title", "Article"),
-                    "content": result.get("snippet", ""),
+                    "text": result.get("snippet", ""),  # Use 'text' key for token counter
                 })
                 source_urls.append(url)
 
         if not articles:
             raise ValueError(f"Failed to extract content from articles for topic: {topic}")
 
+        # Step 2.5: Select articles within token limit (smart selection)
+        print(f"Found {len(articles)} articles. Selecting based on token limit...")
+        selected_articles = token_counter.select_articles_within_limit(
+            articles, base_prompt_tokens=500
+        )
+
+        if not selected_articles:
+            # If token counting failed, use first article
+            selected_articles = articles[:1]
+
+        # Update source_urls to match selected articles
+        source_urls = [a["url"] for a in selected_articles]
+
+        # Rename 'text' back to 'content' for LLM
+        for article in selected_articles:
+            article["content"] = article.pop("text")
+
         # Step 3: Use LLM to generate summary briefing
         llm_response = llm_client.generate_briefing(
             source_type="article_summary",
-            data={"articles": articles, "topic": topic},
+            data={"articles": selected_articles, "topic": topic},
             reading_level=reading_level,
         )
 

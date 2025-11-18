@@ -11,6 +11,7 @@ from app.config import ReadingLevel, BriefingSourceType
 from app.database import get_db
 from app.models.briefing import Briefing
 from app.services.briefing_generator import briefing_generator
+from app.services.duplicate_checker import check_for_duplicates
 
 router = APIRouter(prefix="/api", tags=["Briefings"])
 
@@ -217,7 +218,7 @@ async def generate_briefing(
             briefing_data = briefing_generator.generate_article_summary_briefing(
                 topic=request.topic,
                 reading_level=request.reading_level,
-                max_articles=3
+                max_articles=3  # Search for 3, token counter will select what fits
             )
 
         if not briefing_data:
@@ -225,6 +226,23 @@ async def generate_briefing(
                 status_code=500,
                 detail="Failed to generate briefing data"
             )
+
+        # Check for duplicates (only for article summaries)
+        if request.source_type == BriefingSourceType.ARTICLE_SUMMARY:
+            is_duplicate = check_for_duplicates(
+                db=db,
+                title=briefing_data.get("title", ""),
+                tags=briefing_data.get("tags", []),
+                source_type=request.source_type.value,
+                days_lookback=30,
+                similarity_threshold=0.6
+            )
+
+            if is_duplicate:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Similar briefing already published in the last 30 days. Try a different topic."
+                )
 
         # Save to database
         briefing = Briefing(**briefing_data)

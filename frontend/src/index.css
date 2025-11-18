@@ -2,46 +2,146 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
 /* Custom styles for EazyHealth AI */
 
 @layer base {
   body {
-    @apply antialiased;
+    @apply antialiased bg-gray-50 text-gray-800;
+    font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-gray-900;
+    line-height: 1.3;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
+  /* Container - centered content with max-width */
+  .container-custom {
+    @apply max-w-container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Button styles - pill-shaped with smooth transitions */
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-pill font-medium transition-all duration-slow;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 hover:shadow-soft-md;
+    @apply focus:ring-primary-500;
+    transform: translateY(0);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary {
+    @apply bg-white text-primary-600 border-2 border-primary-600 hover:bg-primary-50 hover:shadow-soft;
+    @apply focus:ring-primary-500;
+  }
+
+  .btn-accent {
+    @apply bg-accent-500 text-white hover:bg-accent-600 hover:shadow-soft-md;
+    @apply focus:ring-accent-400;
+    transform: translateY(0);
+  }
+
+  .btn-accent:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Card styles - rounded with soft shadows */
+  .card {
+    @apply bg-white rounded-card shadow-soft p-6 transition-all duration-slow;
+  }
+
+  .card-hover {
+    @apply bg-white rounded-card shadow-soft p-6 transition-all duration-slow;
+    @apply hover:shadow-soft-lg cursor-pointer;
+    transform: translateY(0);
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px);
+  }
+
+  .card-lg {
+    @apply bg-white rounded-card-lg shadow-soft-md p-8 transition-all duration-slow;
+  }
+
+  /* Tag/Badge styles - pill-shaped */
+  .tag {
+    @apply inline-flex items-center px-3 py-1 rounded-pill text-sm font-medium;
+  }
+
+  .tag-primary {
+    @apply bg-primary-100 text-primary-800;
+  }
+
+  .tag-accent {
+    @apply bg-accent-100 text-accent-800;
+  }
+
+  .tag-teal {
+    @apply bg-teal-100 text-teal-800;
+  }
+
+  .tag-gray {
+    @apply bg-gray-200 text-gray-700;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-hero {
+    background: linear-gradient(135deg, #2563EB 0%, #0EA5E9 100%);
+  }
+
+  .gradient-soft {
+    background: linear-gradient(135deg, #EFF6FF 0%, #F0FDFA 100%);
+  }
+
   /* Prose styling for markdown content */
   .prose {
-    @apply text-gray-700;
+    @apply text-gray-700 leading-relaxed;
   }
 
   .prose h1 {
-    @apply text-2xl font-bold text-gray-900 mt-6 mb-4;
+    @apply text-3xl font-bold text-gray-900 mt-8 mb-4;
   }
 
   .prose h2 {
-    @apply text-xl font-semibold text-gray-900 mt-6 mb-3;
+    @apply text-2xl font-semibold text-gray-900 mt-6 mb-3;
   }
 
   .prose h3 {
-    @apply text-lg font-semibold text-gray-900 mt-4 mb-2;
+    @apply text-xl font-semibold text-gray-900 mt-5 mb-2;
   }
 
   .prose p {
-    @apply mb-4 leading-relaxed;
+    @apply mb-4 leading-relaxed text-gray-700;
   }
 
   .prose ul {
-    @apply list-disc list-inside mb-4 space-y-2;
+    @apply list-disc list-inside mb-4 space-y-2 ml-4;
   }
 
   .prose ol {
-    @apply list-decimal list-inside mb-4 space-y-2;
+    @apply list-decimal list-inside mb-4 space-y-2 ml-4;
   }
 
   .prose li {
-    @apply leading-relaxed;
+    @apply leading-relaxed text-gray-700;
   }
 
   .prose strong {
@@ -49,15 +149,15 @@
   }
 
   .prose a {
-    @apply text-primary-600 hover:text-primary-800 underline;
+    @apply text-primary-600 hover:text-primary-800 underline transition-colors;
   }
 
   .prose code {
-    @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+    @apply bg-gray-100 px-2 py-1 rounded text-sm font-mono text-gray-800;
   }
 
   .prose blockquote {
-    @apply border-l-4 border-gray-300 pl-4 italic text-gray-700 my-4;
+    @apply border-l-4 border-primary-300 pl-4 italic text-gray-600 my-4 bg-gray-50 py-2;
   }
 }
 
