@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from app.config import ReadingLevel
 
-# API endpoint
-API_BASE_URL = "http://localhost:8000"
+# API endpoint - use environment variable for production
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 # Reading level rotation for data analysis (4-week cycle)
 DATA_ANALYSIS_LEVELS = [
