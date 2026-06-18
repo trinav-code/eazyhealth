@@ -1,6 +1,6 @@
 # EazyHealth AI
 
-**Health information that finds you and answers you.**
+**Health information made easy to understand.**
 
 EazyHealth AI is a full-stack web application that makes health information accessible through:
 
